@@ -167,7 +167,7 @@
     <div class="offlist" id="offList"></div>
   </section>
 
-  <footer>On iPhone: open this site in Safari → Share → Add to Home Screen.<br>Assumes your rotating day off shifts by exactly one weekday each week. USPS holiday dates and official 2026 USPS paydays are shown separately.</footer>
+  <footer>On iPhone: open this site in Safari → Share → Add to Home Screen.<br>Assumes your USPS week runs Saturday-Friday and your rotating day off shifts by exactly one weekday each week. USPS holiday dates and official 2026 USPS paydays are shown separately.</footer>
 </main>
 
 <script>
@@ -177,7 +177,7 @@
 
   // ---- date helpers (all local-time, no UTC drift) ----
   function startOfDay(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-  function sundayAnchor(d){ const s = startOfDay(d); return new Date(s.getFullYear(), s.getMonth(), s.getDate() - s.getDay()); }
+  function weekAnchor(d){ const s = startOfDay(d); return new Date(s.getFullYear(), s.getMonth(), s.getDate() - ((s.getDay() + 1) % 7)); }
   function addDays(d, n){ return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
   function sameDate(a,b){ return !!a && !!b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
   function parseISODate(s){
@@ -191,18 +191,21 @@
     return y+'-'+m+'-'+dd;
   }
 
-  // Given any target date, find the rotating (non-Sunday) day off for that week.
-  // refDate is a known rotating day off (Mon-Sat). The rotation shifts by one
-  // weekday per week, wrapping every 6 weeks, in the chosen direction.
+  // USPS workweek for this calendar runs Saturday-Friday. Sunday is always
+  // a separate regular day off, so the rotating day cycles through the six
+  // non-Sunday weekdays: Sat, Mon, Tue, Wed, Thu, Fri.
+  // The rotation shifts by one day each Sat-Fri week.
   function computeRotatingOff(targetDate, refDate, direction){
-    const refSun = sundayAnchor(refDate);
-    const refPos = refDate.getDay() - 1; // 0=Mon .. 5=Sat
-    const weekSun = sundayAnchor(targetDate);
-    const weeksDiff = Math.round((weekSun - refSun) / (7*MS_DAY));
+    const refWeek = weekAnchor(refDate);
+    const week = weekAnchor(targetDate);
+    const weeksDiff = Math.round((week - refWeek) / (7*MS_DAY));
+    const cycleDays = [0, 2, 3, 4, 5, 6]; // Sat, Mon, Tue, Wed, Thu, Fri
+    const refPos = cycleDays.indexOf(refDate.getDay());
+    if(refPos < 0) return null;
     const dir = direction === 'backward' ? -1 : 1;
     const rawPos = refPos + dir*weeksDiff;
     const pos = ((rawPos % 6) + 6) % 6;
-    return addDays(weekSun, pos+1);
+    return addDays(week, cycleDays[pos]);
   }
 
   // USPS observes these 11 holidays. This uses the USPS holiday calendar
@@ -328,8 +331,8 @@
     els.segBackward.classList.toggle('active', state.direction==='backward');
     els.segForward.classList.toggle('active', state.direction==='forward');
     els.helper.textContent = state.direction === 'backward'
-      ? 'Your day off moves one day earlier each week: Sat → Fri → Thu → Wed → Tue → Mon, then back to Sat.'
-      : 'Your day off moves one day later each week: Mon → Tue → Wed → Thu → Fri → Sat, then back to Mon.';
+      ? 'Your day off moves one step earlier each Sat–Fri week: Sat → Fri → Thu → Wed → Tue → Mon, then back to Sat.'
+      : 'Your day off moves one step later each Sat–Fri week: Mon → Tue → Wed → Thu → Fri → Sat, then back to Mon.';
   }
 
   function renderCalendar(){
