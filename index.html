@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2A4A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Days Off">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+<title>Days Off — City Carrier Schedule</title>
+<style>
+  :root {
+    --navy: #1B2A4A;
+    --paper: #EAE3D3;
+    --paper-light: #F3EEE1;
+    --ink: #221F1A;
+    --ink-soft: #6B6455;
+    --off-red: #A5342A;
+    --gold: #C68A1F;
+    --line: #D3C9AE;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, Roboto, sans-serif;
+    font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  header {
+    background: var(--navy);
+    color: var(--paper);
+    padding: max(22px, env(safe-area-inset-top)) 20px 18px;
+  }
+  header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  header p { margin: 4px 0 0; font-size: 13.5px; color: rgba(241,237,227,0.72); font-weight: 400; line-height: 1.4; }
+
+  main { padding: 0 16px 8px; max-width: 480px; margin: 0 auto; }
+  section { margin-top: 26px; }
+
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 7px; }
+  input[type="date"] {
+    width: 100%; padding: 12px 14px; font-size: 16px; border: 1.5px solid var(--line);
+    border-radius: 10px; background: var(--paper-light); color: var(--ink); font-family: inherit;
+  }
+  .warn { color: var(--off-red); font-size: 13px; margin-top: 7px; line-height: 1.4; display: none; }
+
+  .segmented { display: flex; border: 1.5px solid var(--navy); border-radius: 10px; overflow: hidden; }
+  .segmented button {
+    flex: 1; padding: 11px 8px; border: none; background: var(--paper-light); color: var(--navy);
+    font-size: 13px; font-weight: 600; font-family: inherit; line-height: 1.3;
+  }
+  .segmented button + button { border-left: 1.5px solid var(--navy); }
+  .segmented button.active { background: var(--navy); color: var(--paper); }
+  .helper { font-size: 13px; color: var(--ink-soft); margin-top: 9px; line-height: 1.45; }
+
+  .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .cal-nav .nav-arrow {
+    background: none; border: none; font-size: 22px; color: var(--navy); padding: 8px 14px; font-family: inherit;
+  }
+  .cal-nav .month-label { font-size: 16px; font-weight: 700; }
+
+  .weekdays, .daygrid { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .weekdays div { text-align: center; font-size: 11px; font-weight: 600; color: var(--ink-soft); padding-bottom: 8px; }
+  .daygrid .cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+  .daygrid .cell .num {
+    width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; font-size: 14px; font-weight: 500; position: relative;
+  }
+  .daygrid .cell.outside .num { color: var(--line); }
+  .daygrid .cell.sunday .num { background: var(--navy); color: var(--paper); font-weight: 700; }
+  .daygrid .cell.rotating .num { background: var(--off-red); color: var(--paper-light); font-weight: 700; }
+  .daygrid .cell.holiday .num { background: var(--gold); color: var(--ink); font-weight: 700; }
+  .daygrid .cell.payday .num { box-shadow: inset 0 -3px 0 var(--navy); font-weight: 700; }
+  .daygrid .cell.payday.holiday .num { box-shadow: inset 0 -3px 0 var(--navy); }
+  .daygrid .cell.payday.rotating .num { box-shadow: inset 0 -3px 0 var(--navy); }
+  .daygrid .cell.rotating.holiday .num { background: linear-gradient(135deg, var(--off-red) 0 50%, var(--gold) 50% 100%); color: var(--paper-light); }
+  .holiday-note { font-size: 12px; color: var(--ink-soft); margin-top: 9px; line-height: 1.45; }
+  .daygrid .cell.today .num { box-shadow: 0 0 0 2px var(--gold); }
+
+  .cal-footer-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-soft); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .legend i.sunday { background: var(--navy); }
+  .legend i.rotating { background: var(--off-red); }
+  .legend i.holiday { background: var(--gold); }
+  .legend i.payday { background: var(--navy); border-radius: 2px; }
+  .today-btn {
+    font-size: 12px; font-weight: 600; color: var(--navy); background: var(--paper-light);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-family: inherit;
+  }
+
+  .summary { font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; line-height: 1.4; }
+  .offlist { border-top: 1px solid var(--line); }
+  .offlist .row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 2px; border-bottom: 1px solid var(--line); font-size: 14px;
+  }
+  .offlist .row .date { font-weight: 600; }
+  .offlist .row .tag { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
+  .offlist .row .tag.sunday { background: rgba(27,42,74,0.12); color: var(--navy); }
+  .offlist .row .tag.rotating { background: rgba(165,52,42,0.12); color: var(--off-red); }
+  .offlist .row .tag.holiday { background: rgba(198,138,31,0.18); color: #7A5510; }
+  .offlist .row .tag.payday { background: rgba(27,42,74,0.12); color: var(--navy); }
+  .offlist .empty { color: var(--ink-soft); font-size: 14px; padding: 16px 2px; }
+
+  footer { text-align: center; font-size: 11.5px; color: var(--ink-soft); padding: 28px 16px 6px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Days off</h1>
+  <p>City carrier schedule — Sundays plus your rotating day off</p>
+</header>
+
+<main>
+  <section class="setup">
+    <div class="field">
+      <label for="lastDayOff">Last rotating day off</label>
+      <input type="date" id="lastDayOff">
+      <div class="warn" id="dateWarn"></div>
+    </div>
+    <div class="field">
+      <label>Which way does it rotate?</label>
+      <div class="segmented">
+        <button type="button" id="segBackward" class="active">Earlier each week</button>
+        <button type="button" id="segForward">Later each week</button>
+      </div>
+      <div class="helper" id="directionHelper"></div>
+    </div>
+  </section>
+
+  <section class="calendar">
+    <div class="cal-nav">
+      <button type="button" class="nav-arrow" id="prevMonth" aria-label="Previous month">‹</button>
+      <span class="month-label" id="monthLabel"></span>
+      <button type="button" class="nav-arrow" id="nextMonth" aria-label="Next month">›</button>
+    </div>
+    <div class="weekdays">
+      <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+    </div>
+    <div class="daygrid" id="dayGrid"></div>
+    <div class="cal-footer-row">
+      <div class="legend">
+        <span><i class="sunday"></i>Sunday</span>
+        <span><i class="rotating"></i>Rotating</span>
+        <span><i class="holiday"></i>USPS Holiday</span>
+        <span><i class="payday"></i>Payday</span>
+      </div>
+      <button type="button" class="today-btn" id="todayBtn">Today</button>
+    </div>
+    <div class="holiday-note">USPS observes 11 holidays. Holiday dates are shown separately from your normal Sunday/rotating days off.</div>
+  </section>
+
+  <section class="list">
+    <div class="summary" id="listSummary"></div>
+    <div class="offlist" id="offList"></div>
+  </section>
+
+  <footer>On iPhone: open this site in Safari → Share → Add to Home Screen.<br>Assumes your rotating day off shifts by exactly one weekday each week. USPS holiday dates and official 2026 USPS paydays are shown separately.</footer>
+</main>
+
+<script>
+(function(){
+  const MS_DAY = 86400000;
+  const STORAGE_KEY = 'config';
+
+  // ---- date helpers (all local-time, no UTC drift) ----
+  function startOfDay(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function sundayAnchor(d){ const s = startOfDay(d); return new Date(s.getFullYear(), s.getMonth(), s.getDate() - s.getDay()); }
+  function addDays(d, n){ return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+  function sameDate(a,b){ return !!a && !!b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+  function parseISODate(s){
+    if(!s) return null;
+    const parts = s.split('-').map(Number);
+    if(parts.length!==3 || !parts[0] || !parts[1] || !parts[2]) return null;
+    return new Date(parts[0], parts[1]-1, parts[2]);
+  }
+  function toISODate(d){
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+dd;
+  }
+
+  // Given any target date, find the rotating (non-Sunday) day off for that week.
+  // refDate is a known rotating day off (Mon-Sat). The rotation shifts by one
+  // weekday per week, wrapping every 6 weeks, in the chosen direction.
+  function computeRotatingOff(targetDate, refDate, direction){
+    const refSun = sundayAnchor(refDate);
+    const refPos = refDate.getDay() - 1; // 0=Mon .. 5=Sat
+    const weekSun = sundayAnchor(targetDate);
+    const weeksDiff = Math.round((weekSun - refSun) / (7*MS_DAY));
+    const dir = direction === 'backward' ? -1 : 1;
+    const rawPos = refPos + dir*weeksDiff;
+    const pos = ((rawPos % 6) + 6) % 6;
+    return addDays(weekSun, pos+1);
+  }
+
+  // USPS observes these 11 holidays. This uses the USPS holiday calendar
+  // dates (not a generic list of state/local holidays).
+  function nthWeekday(year, month, weekday, n){
+    const first = new Date(year, month, 1);
+    return new Date(year, month, 1 + ((weekday - first.getDay() + 7) % 7) + 7*(n-1));
+  }
+  function lastWeekday(year, month, weekday){
+    const last = new Date(year, month + 1, 0);
+    return new Date(year, month, last.getDate() - ((last.getDay() - weekday + 7) % 7));
+  }
+  function uspsHolidays(year){
+    return [
+      {date: new Date(year, 0, 1), name: "New Year's Day"},
+      {date: nthWeekday(year, 0, 1, 3), name: "Martin Luther King Jr. Day"},
+      {date: nthWeekday(year, 1, 1, 3), name: "Washington's Birthday"},
+      {date: lastWeekday(year, 4, 1), name: "Memorial Day"},
+      {date: new Date(year, 5, 19), name: "Juneteenth"},
+      {date: new Date(year, 6, 4), name: "Independence Day"},
+      {date: nthWeekday(year, 8, 1, 1), name: "Labor Day"},
+      {date: nthWeekday(year, 9, 1, 2), name: "Columbus Day"},
+      {date: new Date(year, 10, 11), name: "Veterans Day"},
+      {date: nthWeekday(year, 10, 4, 4), name: "Thanksgiving Day"},
+      {date: new Date(year, 11, 25), name: "Christmas Day"}
+    ];
+  }
+  function getHoliday(date){
+    const holidays = uspsHolidays(date.getFullYear());
+    for(const h of holidays){
+      // Also recognize the Monday/Friday federal observation date when
+      // the legal holiday falls on Sunday/Saturday.
+      const observed = h.date.getDay()===6 ? addDays(h.date, -1)
+                    : h.date.getDay()===0 ? addDays(h.date, 1)
+                    : h.date;
+      if(sameDate(date, h.date)) return {name:h.name, legal:true};
+      if(sameDate(date, observed)) return {name:h.name + " (observed)", legal:false};
+    }
+    return null;
+  }
+
+
+  // Official USPS 2026 pay dates (Postal Bulletin 22692).
+  const USPS_PAY_DATES_2026 = {
+    "2026-01-02": 1,
+    "2026-01-16": 2,
+    "2026-01-30": 3,
+    "2026-02-13": 4,
+    "2026-02-27": 5,
+    "2026-03-13": 6,
+    "2026-03-27": 7,
+    "2026-04-10": 8,
+    "2026-04-24": 9,
+    "2026-05-08": 10,
+    "2026-05-22": 11,
+    "2026-06-05": 12,
+    "2026-06-18": 13,
+    "2026-07-03": 14,
+    "2026-07-17": 15,
+    "2026-07-31": 16,
+    "2026-08-14": 17,
+    "2026-08-28": 18,
+    "2026-09-11": 19,
+    "2026-09-25": 20,
+    "2026-10-09": 21,
+    "2026-10-23": 22,
+    "2026-11-06": 23,
+    "2026-11-20": 24,
+    "2026-12-04": 25,
+    "2026-12-18": 26,
+    "2026-12-31": 27
+  };
+
+  function getPayPeriod(date){
+    const iso = toISODate(date);
+    const pp = USPS_PAY_DATES_2026[iso];
+    return pp || null;
+  }
+
+  function classify(date, refDate, direction){
+    const holiday = getHoliday(date);
+    if(date.getDay()===0) return holiday ? 'holiday sunday' : 'sunday';
+    if(refDate){
+      if(sameDate(date, computeRotatingOff(date, refDate, direction)))
+        return holiday ? 'holiday rotating' : 'rotating';
+    }
+    return holiday ? 'holiday' : 'work';
+  }
+
+  // ---- state ----
+  const today = startOfDay(new Date());
+  let state = {
+    lastDayOff: null,
+    direction: 'backward',
+    viewYear: today.getFullYear(),
+    viewMonth: today.getMonth(),
+  };
+
+  const els = {
+    dateInput: document.getElementById('lastDayOff'),
+    warn: document.getElementById('dateWarn'),
+    segBackward: document.getElementById('segBackward'),
+    segForward: document.getElementById('segForward'),
+    helper: document.getElementById('directionHelper'),
+    monthLabel: document.getElementById('monthLabel'),
+    dayGrid: document.getElementById('dayGrid'),
+    prevBtn: document.getElementById('prevMonth'),
+    nextBtn: document.getElementById('nextMonth'),
+    todayBtn: document.getElementById('todayBtn'),
+    listSummary: document.getElementById('listSummary'),
+    offList: document.getElementById('offList'),
+  };
+
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function render(){
+    renderDirectionHelper();
+    renderCalendar();
+    renderList();
+  }
+
+  function renderDirectionHelper(){
+    els.segBackward.classList.toggle('active', state.direction==='backward');
+    els.segForward.classList.toggle('active', state.direction==='forward');
+    els.helper.textContent = state.direction === 'backward'
+      ? 'Your day off moves one day earlier each week: Sat → Fri → Thu → Wed → Tue → Mon, then back to Sat.'
+      : 'Your day off moves one day later each week: Mon → Tue → Wed → Thu → Fri → Sat, then back to Mon.';
+  }
+
+  function renderCalendar(){
+    const y = state.viewYear, m = state.viewMonth;
+    els.monthLabel.textContent = MONTH_NAMES[m] + ' ' + y;
+    els.dayGrid.innerHTML = '';
+    const firstOfMonth = new Date(y, m, 1);
+    const startGrid = addDays(firstOfMonth, -firstOfMonth.getDay());
+    for(let i=0;i<42;i++){
+      const date = addDays(startGrid, i);
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if(date.getMonth() !== m){
+        cell.classList.add('outside');
+      } else {
+        const cls = classify(date, state.lastDayOff, state.direction);
+        if(cls!=='work') cls.split(' ').forEach(c => cell.classList.add(c));
+        if(getPayPeriod(date)) cell.classList.add('payday');
+      }
+      if(sameDate(date, today)) cell.classList.add('today');
+      const num = document.createElement('div');
+      num.className = 'num';
+      num.textContent = date.getDate();
+      cell.appendChild(num);
+      els.dayGrid.appendChild(cell);
+    }
+  }
+
+  function renderList(){
+    const y = state.viewYear, m = state.viewMonth;
+    const daysInMonth = new Date(y, m+1, 0).getDate();
+    const rows = [];
+    for(let d=1; d<=daysInMonth; d++){
+      const date = new Date(y,m,d);
+      const cls = classify(date, state.lastDayOff, state.direction);
+      const payPeriod = getPayPeriod(date);
+      if(cls !== 'work' || payPeriod) rows.push({date, cls, holiday:getHoliday(date), payPeriod});
+    }
+    const holidayCount = rows.filter(r => r.holiday).length;
+    const paydayCount = rows.filter(r => r.payPeriod).length;
+    els.listSummary.textContent = rows.length + ' marked day' + (rows.length===1?'':'s') + ' in ' + MONTH_NAMES[m]
+      + (holidayCount ? ' · ' + holidayCount + ' USPS holiday' + (holidayCount===1?'':'s') : '')
+      + (paydayCount ? ' · ' + paydayCount + ' payday' + (paydayCount===1?'':'s') : '')
+      + (!state.lastDayOff ? ' — add your last rotating day off above for the full picture' : '');
+    els.offList.innerHTML = '';
+    if(rows.length===0){
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'No days off found.';
+      els.offList.appendChild(empty);
+      return;
+    }
+    rows.forEach(function(r){
+      const row = document.createElement('div');
+      row.className = 'row';
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'date';
+      dateSpan.textContent = r.date.toLocaleDateString('en-US',{weekday:'short', month:'short', day:'numeric'})
+        + (r.holiday ? ' — ' + r.holiday.name : '');
+      const tag = document.createElement('span');
+      tag.className = 'tag ' + (r.holiday ? 'holiday' : (r.payPeriod ? 'payday' : r.cls));
+      if(r.holiday) tag.textContent = 'USPS Holiday';
+      else if(r.payPeriod) tag.textContent = 'Payday · PP ' + String(r.payPeriod).padStart(2,'0');
+      else tag.textContent = r.cls === 'sunday' ? 'Sunday' : 'Rotating';
+      row.appendChild(dateSpan);
+      row.appendChild(tag);
+      els.offList.appendChild(row);
+    });
+  }
+
+  function validateDate(){
+    if(state.lastDayOff && state.lastDayOff.getDay()===0){
+      els.warn.textContent = "That's a Sunday — enter your rotating weekday off instead (Sunday is already counted separately).";
+      els.warn.style.display = 'block';
+    } else {
+      els.warn.style.display = 'none';
+    }
+  }
+
+  // ---- persistence (personal, on-device via artifact storage) ----
+  async function loadConfig(){
+    try {
+      const result = await window.storage.get(STORAGE_KEY, false);
+      if(result && result.value){
+        const cfg = JSON.parse(result.value);
+        if(cfg.lastDayOff) state.lastDayOff = parseISODate(cfg.lastDayOff);
+        if(cfg.direction) state.direction = cfg.direction;
+      }
+    } catch(e){ /* nothing saved yet, or storage unavailable — defaults are fine */ }
+    if(state.lastDayOff) els.dateInput.value = toISODate(state.lastDayOff);
+  }
+
+  async function saveConfig(){
+    try {
+      await window.storage.set(STORAGE_KEY, JSON.stringify({
+        lastDayOff: state.lastDayOff ? toISODate(state.lastDayOff) : null,
+        direction: state.direction
+      }), false);
+    } catch(e){ /* saving failed silently — app still works this session */ }
+  }
+
+  // ---- events ----
+  els.dateInput.addEventListener('change', function(){
+    state.lastDayOff = parseISODate(els.dateInput.value);
+    validateDate();
+    render();
+    saveConfig();
+  });
+  els.segBackward.addEventListener('click', function(){ state.direction='backward'; render(); saveConfig(); });
+  els.segForward.addEventListener('click', function(){ state.direction='forward'; render(); saveConfig(); });
+  els.prevBtn.addEventListener('click', function(){
+    state.viewMonth--; if(state.viewMonth<0){ state.viewMonth=11; state.viewYear--; }
+    renderCalendar(); renderList();
+  });
+  els.nextBtn.addEventListener('click', function(){
+    state.viewMonth++; if(state.viewMonth>11){ state.viewMonth=0; state.viewYear++; }
+    renderCalendar(); renderList();
+  });
+  els.todayBtn.addEventListener('click', function(){
+    state.viewYear = today.getFullYear(); state.viewMonth = today.getMonth();
+    renderCalendar(); renderList();
+  });
+
+  if('serviceWorker' in navigator && location.protocol !== 'file:'){
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  }
+
+  (async function init(){
+    await loadConfig();
+    validateDate();
+    render();
+  })();
+})();
+</script>
+</body>
+</html>
