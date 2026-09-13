@@ -147,7 +147,7 @@
       <button type="button" class="nav-arrow" id="nextMonth" aria-label="Next month">›</button>
     </div>
     <div class="weekdays">
-      <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+      <div>Sat</div><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div>
     </div>
     <div class="daygrid" id="dayGrid"></div>
     <div class="cal-footer-row">
@@ -340,7 +340,11 @@
     els.monthLabel.textContent = MONTH_NAMES[m] + ' ' + y;
     els.dayGrid.innerHTML = '';
     const firstOfMonth = new Date(y, m, 1);
-    const startGrid = addDays(firstOfMonth, -firstOfMonth.getDay());
+    // Calendar rows run Saturday-Friday, matching the USPS workweek.
+    // JS getDay(): Sun=0, Mon=1, ... Sat=6. For a given date, find the
+    // Saturday at the start of its Sat-Fri calendar row.
+    const firstWeekday = (firstOfMonth.getDay() + 1) % 7; // Sat=0, Sun=1, ... Fri=6
+    const startGrid = addDays(firstOfMonth, -firstWeekday);
     for(let i=0;i<42;i++){
       const date = addDays(startGrid, i);
       const cell = document.createElement('div');
